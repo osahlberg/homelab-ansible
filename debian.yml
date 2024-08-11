@@ -1,0 +1,62 @@
+- name: Prepare ansible user on remote host
+  hosts: debian
+  vars:
+    sudoers:
+      - ansible
+      - olli
+  vars_files:
+    - secret
+  tasks:
+    - name: Create user on remote host
+      become: true
+      user:
+        name: ansible
+        password: "{{ ansible_sudo_pass | password_hash('sha512') }}"
+        generate_ssh_key: yes
+        ssh_key_bits: 2048
+        ssh_key_file: .ssh/id_rsa
+
+    - name: Make sure we have a 'wheel' group
+      become: true
+      group:
+        name: wheel
+        state: present
+
+    - name: Allow 'wheel' group to have passwordless sudo
+      become: true
+      lineinfile:
+        dest: /etc/sudoers
+        state: present
+        regexp: '^%wheel'
+        line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+        validate: visudo -cf %s
+
+    - name: Add sudoers users to wheel group
+      become: true
+      user:
+        name: "{{ item }}"
+        groups: wheel
+        append: yes
+      with_items: "{{ sudoers }}"
+
+    - name: Set authorized key taken from file
+      become: true
+      ansible.posix.authorized_key:
+        user: ansible
+        state: present
+        key: "{{ lookup('file', 'resources/id_rsa.pub') }}"
+
+- name: Prepare Debian packages
+  remote_user: ansible
+  hosts: debian
+  vars_files:
+    - secret
+  tasks:
+    - name: Ensure packages are installed and up to date
+      become: true
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - docker-compose
+        state: latest
+
