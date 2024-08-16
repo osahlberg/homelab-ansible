@@ -1,0 +1,114 @@
+- name: Prepare ansible user on remote host
+  hosts: debian
+  vars:
+    sudoers:
+      - ansible
+      - olli
+  vars_files:
+    - secret
+  tasks:
+    - name: Create ansible user on remote host
+      become: true
+      user:
+        name: ansible
+        password: "{{ ansible_sudo_pass | password_hash('sha512') }}"
+        generate_ssh_key: yes
+        ssh_key_bits: 2048
+        ssh_key_file: .ssh/id_rsa
+
+    - name: Make sure we have a 'wheel' group
+      become: true
+      group:
+        name: wheel
+        state: present
+
+    - name: Allow 'wheel' group to have passwordless sudo
+      become: true
+      lineinfile:
+        dest: /etc/sudoers
+        state: present
+        regexp: '^%wheel'
+        line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+        validate: visudo -cf %s
+
+    - name: Add sudoers users to wheel group
+      become: true
+      user:
+        name: "{{ item }}"
+        groups: wheel
+        append: yes
+      with_items: "{{ sudoers }}"
+
+    - name: Set authorized key taken from file
+      become: true
+      ansible.posix.authorized_key:
+        user: "{{ item }}"
+        state: present
+        key: "{{ lookup('file', 'resources/id_rsa.pub') }}"
+      with_items: "{{ sudoers }}"
+
+- name: Prepare Debian packages
+  remote_user: ansible
+  hosts: debian
+  vars_files:
+    - secret
+  tasks:
+    - name: Ensure packages are installed and up to date
+      become: true
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - bind9
+        state: latest
+
+    - name: Install pip
+      become: true
+      apt:
+        update_cache: yes
+        name:
+          - python3-pip
+          - python3-pexpect
+
+- name: Configure firewall
+  remote_user: ansible
+  hosts: debian
+  tasks:
+    - name: Allow bind9
+      become: true
+      ansible.builtin.shell: ufw allow Bind9 && ufw allow 53/tcp
+      notify: reload ufw
+  handlers:
+    - name: reload ufw
+      become: true
+      ansible.builtin.shell: ufw reload
+
+- name: Configure bind9
+  remote_user: ansible
+  hosts: debian
+  vars_files:
+    - secret
+  tasks:
+    - name: Upload named.conf
+      become: true
+      ansible.builtin.copy:
+        src: resources/named.conf.local
+        dest: /etc/bind/named.conf.local
+        mode: '0644'
+    - name: Upload named.conf
+      become: true
+      ansible.builtin.copy:
+        src: resources/db.jellyfin.box
+        dest: /etc/bind/db.jellyfin.box
+        mode: '0644'
+    - name: Upload db.192
+      become: true
+      ansible.builtin.copy:
+        src: resources/db.192
+        dest: /etc/bind/db.192
+        mode: '0644'
+    - name: Restart bind9
+      become: true
+      ansible.builtin.shell: sudo systemctl restart named
+    - name: Restart bind9
+      become: true
+      ansible.builtin.shell: sudo systemctl restart bind9

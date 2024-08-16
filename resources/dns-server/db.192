@@ -1,0 +1,19 @@
+;
+; BIND reverse data file for local loopback interface
+;
+$TTL    604800
+@       IN      SOA     jellyfin.box. root.jellyfin.box. (
+                     2024081608         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+
+;
+@               IN      NS      jellyfin.box.
+@               IN      A       192.168.1.138
+
+;
+138             IN      PTR     jellyfin.box.
+138             IN      PTR     mail.jellyfin.box.
+138             IN      PTR     mailadmin.jellyfin.box.
