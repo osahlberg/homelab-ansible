@@ -84,6 +84,39 @@
           - python3-pip
           - python3-pexpect
 
+- name: Install nginx
+  become: yes
+  tasks:
+    - name: update
+      apt: update_cache=yes
+    - name: Install Nginx
+      apt: name=nginx state=latest
+    - name: Create directory for static content
+      file:
+        path: /var/www/html/hello-world
+        state: directory
+        mode: 0755
+    - name: Create "index.html" file with "hello world" content
+      template:
+        src: resources/ngin/html/index.html.j2
+        dest: /var/www/html/hello-world/index.html
+        mode: 0644
+    - name: Copy "index.html" to default Nginx location
+      copy:
+        src: /var/www/html/hello-world/index.html
+        dest: /var/www/html/index.html
+        mode: 0644
+        remote_src: true
+    - name: Enable default Nginx website
+      file:
+        src: /etc/nginx/sites-available/default
+        path: /etc/nginx/sites-enabled/default
+        state: link
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
+
 - name: Install Jellyfin
   remote_user: ansible
   hosts: debian
@@ -235,35 +268,6 @@
     - name: Create and start services
       community.docker.docker_compose:
         project_src: /home/ansible/netdata
-      register: output
-
-- name: Configure and start nginx docker compose
-  remote_user: ansible
-  hosts: debian
-  become: true
-  vars_files:
-    - secret
-  tasks:
-    - name: Ensure compose directory
-      ansible.builtin.file:
-        path: /home/ansible/nginx
-        state: directory
-    - name: Upload docker-compose.yml
-      ansible.builtin.copy:
-        src: resources/nginx/
-        dest: /home/ansible/nginx/
-        mode: '0644'
-    - name: Docker login
-      docker_login:
-        username: ollisahlberg
-        password: "{{ docker_password }}"
-    - name: Tear down existing services
-      community.docker.docker_compose:
-        project_src: /home/ansible/nginx
-        state: absent
-    - name: Create and start services
-      community.docker.docker_compose:
-        project_src: /home/ansible/nginx
       register: output
 
 - name: Configure and start development docker compose
