@@ -85,6 +85,7 @@
           - python3-pexpect
 
 - name: Install nginx
+  hosts: debian
   become: yes
   tasks:
     - name: update
@@ -98,13 +99,19 @@
         mode: 0755
     - name: Create "index.html" file with "hello world" content
       template:
-        src: resources/ngin/html/index.html.j2
+        src: resources/nginx/html/index.html.j2
         dest: /var/www/html/hello-world/index.html
         mode: 0644
     - name: Copy "index.html" to default Nginx location
       copy:
         src: /var/www/html/hello-world/index.html
         dest: /var/www/html/index.html
+        mode: 0644
+        remote_src: true
+    - name: Copy nginx.conf
+      copy:
+        src: resources/nginx/conf/nginx.conf
+        dest: /etc/nginx/nginx.conf
         mode: 0644
         remote_src: true
     - name: Enable default Nginx website
