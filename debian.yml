@@ -16,7 +16,6 @@
         generate_ssh_key: yes
         ssh_key_bits: 2048
         ssh_key_file: .ssh/id_rsa
-
     - name: Create samba user on remote host
       become: true
       user:
@@ -25,13 +24,11 @@
         generate_ssh_key: yes
         ssh_key_bits: 2048
         ssh_key_file: .ssh/id_rsa
-
     - name: Make sure we have a 'wheel' group
       become: true
       group:
         name: wheel
         state: present
-
     - name: Allow 'wheel' group to have passwordless sudo
       become: true
       lineinfile:
@@ -40,7 +37,6 @@
         regexp: '^%wheel'
         line: '%wheel ALL=(ALL) NOPASSWD: ALL'
         validate: visudo -cf %s
-
     - name: Add sudoers users to wheel group
       become: true
       user:
@@ -48,7 +44,6 @@
         groups: wheel
         append: yes
       with_items: "{{ sudoers }}"
-
     - name: Set authorized key taken from file
       become: true
       ansible.posix.authorized_key:
@@ -128,3 +123,106 @@
       become: true
       ansible.builtin.shell: apt-key adv --fetch-keys https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key
 
+- name: Configure and start stashapp docker compose
+  remote_user: ansible
+  hosts: debian
+  vars_files:
+    - secret
+  tasks:
+    - name: Upload docker-compose.yml
+      become: true
+      ansible.builtin.copy:
+        src: resources/stash-docker-compose.yml
+        dest: /home/ansible/stash/docker-compose.yml
+        mode: '0644'
+    - name: Docker login
+      become: true
+      docker_login:
+        username: ollisahlberg
+        password: "{{ docker_password }}"
+    - name: Tear down existing services
+      community.docker.docker_compose:
+        project_src: /home/ansible/stash
+        state: absent
+    - name: Create and start services
+      community.docker.docker_compose:
+        project_src: /home/ansible/stash
+      register: output
+
+- name: Configure and start netdata docker compose
+  remote_user: ansible
+  hosts: debian
+  vars_files:
+    - secret
+  tasks:
+    - name: Upload docker-compose.yml
+      become: true
+      ansible.builtin.copy:
+        src: resources/netdata-docker-compose.yml
+        dest: /home/ansible/netdata/docker-compose.yml
+        mode: '0644'
+    - name: Docker login
+      become: true
+      docker_login:
+        username: ollisahlberg
+        password: "{{ docker_password }}"
+    - name: Tear down existing services
+      community.docker.docker_compose:
+        project_src: /home/ansible/netdata
+        state: absent
+    - name: Create and start services
+      community.docker.docker_compose:
+        project_src: /home/ansible/netdata
+      register: output
+
+- name: Configure and start nginx docker compose
+  remote_user: ansible
+  hosts: debian
+  vars_files:
+    - secret
+  tasks:
+    - name: Upload docker-compose.yml
+      become: true
+      ansible.builtin.copy:
+        src: resources/nginx/*
+        dest: /home/ansible/nginx/
+        mode: '0644'
+    - name: Docker login
+      become: true
+      docker_login:
+        username: ollisahlberg
+        password: "{{ docker_password }}"
+    - name: Tear down existing services
+      community.docker.docker_compose:
+        project_src: /home/ansible/nginx
+        state: absent
+    - name: Create and start services
+      community.docker.docker_compose:
+        project_src: /home/ansible/nginx
+      register: output
+
+- name: Configure and start development docker compose
+  remote_user: ansible
+  hosts: debian
+  vars_files:
+    - secret
+  tasks:
+    - name: Upload docker-compose.yml
+      become: true
+      ansible.builtin.copy:
+        src: ../fso/osa3/puhelinluettelo/docker-compose.yml
+        dest: /home/ansible/docker/docker-compose.yml
+        mode: '0644'
+    - name: Docker login
+      become: true
+      docker_login:
+        username: ollisahlberg
+        password: "{{ docker_password }}"
+    - name: Tear down existing services
+      community.docker.docker_compose:
+        project_src: /home/ansible/docker
+        state: absent
+    - name: Create and start services
+      community.docker.docker_compose:
+        project_src: /home/ansible/docker/
+      register: output

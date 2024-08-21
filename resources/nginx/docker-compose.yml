@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - /home/ansible/nginx/html:/usr/share/nginx/html
+      - /home/ansible/nginx/conf:/etc/nginx
+    restart: always
