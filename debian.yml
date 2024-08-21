@@ -60,7 +60,9 @@
   tasks:
     - name: Clean extrepo # TODO: better solution
       become: true
-      ansible.builtin.shell: rm /etc/apt/sources.list.d/extrepo_jellyfin.sources
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/extrepo_jellyfin.sources
+        state: absent
     - name: Ensure packages are installed and up to date
       become: true
       ansible.builtin.apt:
@@ -96,9 +98,9 @@
 - name: Configure firewall
   remote_user: ansible
   hosts: debian
+  become: true
   tasks:
     - name: Allow samba
-      become: true
       ansible.builtin.shell: |
         ufw allow 3702/udp &&
         ufw allow 5357/tcp &&
@@ -108,18 +110,15 @@
         ufw allow 138/udp
       notify: reload ufw
     - name: Allow node project
-      become: true
       ansible.builtin.shell: |
         ufw allow 4173/tcp &&
         ufw allow 3000/tcp
       notify: reload ufw
     - name: Allow Jellyfin
-      become: true
       ansible.builtin.shell: ufw allow 8096/tcp
       notify: reload ufw
   handlers:
     - name: reload ufw
-      become: true
       ansible.builtin.shell: ufw reload
 
 - name: Configure samba
@@ -154,17 +153,16 @@
 - name: Configure Jellyfin
   remote_user: samba
   hosts: debian
+  become: true
   vars_files:
     - secret
   tasks:
     - name: Create film directory
-      become: true
       ansible.builtin.file:
         path: /media/netstorage/sambashare/Film
         state: directory
 
     - name: Create series directory
-      become: true
       ansible.builtin.file:
         path: /media/netstorage/sambashare/Series
         state: directory
@@ -172,30 +170,32 @@
 - name: Configure wsdd
   remote_user: ansible
   hosts: debian
+  become: true
   vars_files:
     - secret
   tasks:
     - name: Update wsdd.list
-      become: true
       ansible.builtin.shell: echo deb https://pkg.ltec.ch/public/ focal main > /etc/apt/sources.list.d/wsdd.list
     - name: Fetch gpg.key
-      become: true
       ansible.builtin.shell: apt-key adv --fetch-keys https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key
 
 - name: Configure and start stashapp docker compose
   remote_user: ansible
   hosts: debian
+  become: true
   vars_files:
     - secret
   tasks:
+    - name: Ensure compose directory
+      ansible.builtin.file:
+        path: /home/ansible/stash
+        state: directory
     - name: Upload docker-compose.yml
-      become: true
       ansible.builtin.copy:
         src: resources/stash-docker-compose.yml
         dest: /home/ansible/stash/docker-compose.yml
         mode: '0644'
     - name: Docker login
-      become: true
       docker_login:
         username: ollisahlberg
         password: "{{ docker_password }}"
@@ -211,17 +211,20 @@
 - name: Configure and start netdata docker compose
   remote_user: ansible
   hosts: debian
+  become: true
   vars_files:
     - secret
   tasks:
+    - name: Ensure compose directory
+      ansible.builtin.file:
+        path: /home/ansible/netdata
+        state: directory
     - name: Upload docker-compose.yml
-      become: true
       ansible.builtin.copy:
         src: resources/netdata-docker-compose.yml
         dest: /home/ansible/netdata/docker-compose.yml
         mode: '0644'
     - name: Docker login
-      become: true
       docker_login:
         username: ollisahlberg
         password: "{{ docker_password }}"
@@ -237,17 +240,20 @@
 - name: Configure and start nginx docker compose
   remote_user: ansible
   hosts: debian
+  become: true
   vars_files:
     - secret
   tasks:
+    - name: Ensure compose directory
+      ansible.builtin.file:
+        path: /home/ansible/nginx
+        state: directory
     - name: Upload docker-compose.yml
-      become: true
       ansible.builtin.copy:
-        src: resources/nginx/*
+        src: resources/nginx/
         dest: /home/ansible/nginx/
         mode: '0644'
     - name: Docker login
-      become: true
       docker_login:
         username: ollisahlberg
         password: "{{ docker_password }}"
@@ -263,17 +269,20 @@
 - name: Configure and start development docker compose
   remote_user: ansible
   hosts: debian
+  become: true
   vars_files:
     - secret
   tasks:
+    - name: Ensure compose directory
+      ansible.builtin.file:
+        path: /home/ansible/docker
+        state: directory
     - name: Upload docker-compose.yml
-      become: true
       ansible.builtin.copy:
-        src: ../fso/osa3/puhelinluettelo/docker-compose.yml
+        src: resources/sandbox/docker-compose.yml
         dest: /home/ansible/docker/docker-compose.yml
         mode: '0644'
     - name: Docker login
-      become: true
       docker_login:
         username: ollisahlberg
         password: "{{ docker_password }}"
