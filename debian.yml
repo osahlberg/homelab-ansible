@@ -75,6 +75,8 @@
           - vim
           - extrepo
           - ufw
+          - certbot
+          - python3-certbot-nginx
         state: latest
     - name: Install pip
       become: true
@@ -101,6 +103,15 @@
       service:
         name: nginx
         state: restarted
+
+- name: Install certificate
+  hosts: debian
+  become: yes
+  tasks:
+    - name: Install certificate
+      ansible.builtin.shell: " certbot --nginx --agree-tos --redirect --hsts --staple-ocsp --email {{ certificate_email }} -d eudamoia.com "
+    - name: Cronjob to renew certificate
+      ansible.builtin.shell: echo "0 0 * * *  root  certbot renew --quiet --no-self-upgrade --post-hook 'systemctl reload nginx'" | tee -a /etc/cron.d/renew_certbot
 
 - name: Install Jellyfin
   remote_user: ansible
