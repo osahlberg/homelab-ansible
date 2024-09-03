@@ -75,8 +75,6 @@
           - vim
           - extrepo
           - ufw
-          - certbot
-          - python3-certbot-nginx
         state: latest
     - name: Install pip
       become: true
@@ -85,33 +83,6 @@
         name:
           - python3-pip
           - python3-pexpect
-
-- name: Install nginx
-  hosts: debian
-  become: yes
-  tasks:
-    - name: update
-      apt: update_cache=yes
-    - name: Install Nginx
-      apt: name=nginx state=latest
-    - name: Copy nginx.conf
-      copy:
-        src: resources/nginx/conf/nginx.conf
-        dest: /etc/nginx/nginx.conf
-        mode: 0644
-    - name: Restart Nginx
-      service:
-        name: nginx
-        state: restarted
-
-- name: Install certificate
-  hosts: debian
-  become: yes
-  tasks:
-    - name: Install certificate
-      ansible.builtin.shell: " certbot --nginx --agree-tos --redirect --hsts --staple-ocsp --email {{ certificate_email }} -d eudamoia.com "
-    - name: Cronjob to renew certificate
-      ansible.builtin.shell: echo "0 0 * * *  root  certbot renew --quiet --no-self-upgrade --post-hook 'systemctl reload nginx'" | tee -a /etc/cron.d/renew_certbot
 
 - name: Install Jellyfin
   remote_user: ansible
@@ -136,7 +107,11 @@
         ufw allow 139/tcp &&
         ufw allow 445/tcp &&
         ufw allow 137/udp &&
-        ufw allow 138/udp
+        ufw allow 138/udp &&
+        ufw allow 22      &&
+        ufw allow 443     &&
+        ufw allow 9999    &&
+        ufw allow 80
       notify: reload ufw
     - name: Allow node project
       ansible.builtin.shell: |
@@ -293,4 +268,42 @@
     - name: Create and start services
       community.docker.docker_compose:
         project_src: /home/ansible/docker/
+      register: output
+
+- name: Configure and start nginx docker compose
+  remote_user: ansible
+  hosts: debian
+  become: true
+  vars_files:
+    - secret
+  tasks:
+    - name: Ensure compose directory
+      ansible.builtin.file:
+        path: /home/ansible/nginx
+        state: directory
+    - name: Ensure conf directory
+      ansible.builtin.file:
+        path: /home/ansible/nginx/conf
+        state: directory
+    - name: Upload docker-compose.yml
+      ansible.builtin.copy:
+        src: resources/nginx/docker-compose.yml
+        dest: /home/ansible/nginx/docker-compose.yml
+        mode: '0644'
+    - name: Upload nginx conf
+      ansible.builtin.copy:
+        src: resources/nginx/conf/nginx.conf
+        dest: /home/ansible/nginx/conf/nginx.conf
+        mode: '0644'
+    - name: Docker login
+      docker_login:
+        username: ollisahlberg
+        password: "{{ docker_password }}"
+    - name: Tear down existing services
+      community.docker.docker_compose:
+        project_src: /home/ansible/nginx
+        state: absent
+    - name: Create and start services
+      community.docker.docker_compose:
+        project_src: /home/ansible/nginx
       register: output

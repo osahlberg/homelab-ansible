@@ -6,6 +6,8 @@ services:
     ports:
       - "80:80"
     volumes:
-      - /home/ansible/nginx/html:/usr/share/nginx/html
-      - /home/ansible/nginx/conf:/etc/nginx
+      - type: bind
+        source: /home/ansible/nginx/conf/nginx.conf
+        target: /etc/nginx/nginx.conf
+      - /home/ansible/nginx/logs:/etc/nginx/logs
     restart: always
