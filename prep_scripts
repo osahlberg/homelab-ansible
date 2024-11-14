@@ -1,0 +1,9 @@
+adduser olli sudo
+lsblk -lf
+sudo mount /dev/sda1 /media/netstorage/
+reboot
+
+ssh-keygen
+ssh-copy-id olli@192.168.1.144
+ssh-copy-id ansible@192.168.1.144
+ssh-copy-id samba@192.168.1.144

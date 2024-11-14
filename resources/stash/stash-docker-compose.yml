@@ -40,3 +40,4 @@ services:
       - /media/netstorage/sambashare/Uusi kansio/stash/blobs:/blobs
       ## Where to store generated content (screenshots,previews,transcodes,sprites)
       - /media/netstorage/sambashare/Uusi kansio/stash/generated:/generated
+      - /media/netstorage/sambashare/Uusi kansio/stash/config:/data/stash/config

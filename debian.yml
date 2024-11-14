@@ -58,11 +58,6 @@
   vars_files:
     - secret
   tasks:
-    - name: Clean extrepo # TODO: better solution
-      become: true
-      ansible.builtin.file:
-        path: /etc/apt/sources.list.d/extrepo_jellyfin.sources
-        state: absent
     - name: Ensure packages are installed and up to date
       become: true
       ansible.builtin.apt:
@@ -73,7 +68,6 @@
           - samba
           - wsdd
           - vim
-          - extrepo
           - ufw
         state: latest
     - name: Install pip
@@ -83,17 +77,6 @@
         name:
           - python3-pip
           - python3-pexpect
-
-- name: Install Jellyfin
-  remote_user: ansible
-  hosts: debian
-  vars_files:
-    - secret
-  tasks:
-    - name: Install Jellyfin
-      become: true
-      become_method: sudo
-      ansible.builtin.shell: extrepo enable jellyfin
 
 - name: Configure firewall
   remote_user: ansible
@@ -134,7 +117,7 @@
     - name: Upload samba .conf-file
       become: true
       ansible.builtin.copy:
-        src: resources/smb.conf
+        src: resources/samba/smb.conf
         dest: /etc/samba/smb.conf
         mode: '0644'
       notify: restart smbd
@@ -165,10 +148,17 @@
       ansible.builtin.file:
         path: /media/netstorage/sambashare/Film
         state: directory
-
     - name: Create series directory
       ansible.builtin.file:
         path: /media/netstorage/sambashare/Series
+        state: directory
+    - name: Create config directory
+      ansible.builtin.file:
+        path: /media/netstorage/sambashare/.jellyfin/config
+        state: directory
+    - name: Create cache directory
+      ansible.builtin.file:
+        path: /home/ansible/jellyfin/cache
         state: directory
 
 - name: Configure wsdd
@@ -183,6 +173,35 @@
     - name: Fetch gpg.key
       ansible.builtin.shell: apt-key adv --fetch-keys https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key
 
+- name: Configure and start jellyfin docker compose
+  remote_user: ansible
+  hosts: debian
+  become: true
+  vars_files:
+    - secret
+  tasks:
+    - name: Ensure compose directory
+      ansible.builtin.file:
+        path: /home/ansible/jellyfin
+        state: directory
+    - name: Upload docker-compose.yml
+      ansible.builtin.copy:
+        src: resources/jellyfin/docker-compose.yml
+        dest: /home/ansible/jellyfin/docker-compose.yml
+        mode: '0644'
+    - name: Docker login
+      docker_login:
+        username: ollisahlberg
+        password: "{{ docker_password }}"
+    - name: Tear down existing services
+      community.docker.docker_compose:
+        project_src: /home/ansible/jellyfin
+        state: absent
+    - name: Create and start services
+      community.docker.docker_compose:
+        project_src: /home/ansible/jellyfin
+      register: output
+
 - name: Configure and start stashapp docker compose
   remote_user: ansible
   hosts: debian
@@ -196,7 +215,7 @@
         state: directory
     - name: Upload docker-compose.yml
       ansible.builtin.copy:
-        src: resources/stash-docker-compose.yml
+        src: resources/stash/docker-compose.yml
         dest: /home/ansible/stash/docker-compose.yml
         mode: '0644'
     - name: Docker login
@@ -225,7 +244,7 @@
         state: directory
     - name: Upload docker-compose.yml
       ansible.builtin.copy:
-        src: resources/netdata-docker-compose.yml
+        src: resources/netdata/docker-compose.yml
         dest: /home/ansible/netdata/docker-compose.yml
         mode: '0644'
     - name: Docker login
@@ -239,35 +258,6 @@
     - name: Create and start services
       community.docker.docker_compose:
         project_src: /home/ansible/netdata
-      register: output
-
-- name: Configure and start development docker compose
-  remote_user: ansible
-  hosts: debian
-  become: true
-  vars_files:
-    - secret
-  tasks:
-    - name: Ensure compose directory
-      ansible.builtin.file:
-        path: /home/ansible/docker
-        state: directory
-    - name: Upload docker-compose.yml
-      ansible.builtin.copy:
-        src: resources/sandbox/docker-compose.yml
-        dest: /home/ansible/docker/docker-compose.yml
-        mode: '0644'
-    - name: Docker login
-      docker_login:
-        username: ollisahlberg
-        password: "{{ docker_password }}"
-    - name: Tear down existing services
-      community.docker.docker_compose:
-        project_src: /home/ansible/docker
-        state: absent
-    - name: Create and start services
-      community.docker.docker_compose:
-        project_src: /home/ansible/docker/
       register: output
 
 - name: Configure and start nginx docker compose

@@ -11,7 +11,7 @@ $TTL    604800
 
 ;
 @               IN      NS      jellyfin.box.
-@               IN      A       192.168.1.138
+@               IN      A       192.168.1.144
 
 ;
 138             IN      PTR     jellyfin.box.
